@@ -127,19 +127,16 @@ module.exports = function(RED) {
             node.status({fill:"red",shape:"dot",text:"Too long since last sample"});
             node.derivative = 0
           } else {
-            if (node.smooth_factor > 0) {
-              // A derivative smoothing factor has been supplied
-              // smoothing time constant is td/factor but with a min of delta_t to stop overflows
-              var ts = Math.max(node.t_derivative/node.smooth_factor, delta_t);
-              factor = 1.0/(ts/delta_t);
+			var delta_v = 0
+            if (node.smooth_factor > 0 && node.smooth_factor < 1) {
+			  // smoothing with exponential smoothing
+		      node.smoothed_value = node.smooth_factor * node.pv + (1-node.smooth_factor) * node.smoothed_value
+			  delta_v = node.smoothed_value-node.last_smoothed_value
             } else {
-              // no integral smoothing so factor is 1, this makes smoothed_value the previous pv
-              factor = 1.0;
-            }
-            var delta_v = (node.pv - node.smoothed_value) * factor;
-            node.smoothed_value = node.smoothed_value + delta_v
-            //node.log( "factor " + factor.toFixed(3) + " delta_t " + delta_t + " delta_v " + delta_v.toFixed(3) +
-            //  " smoothed " + node.smoothed_value.toFixed(3));
+			  node.smoothed_value = node.pv
+			  delta_v = node.last_pv - node.pv
+			}
+			
             node.derivative = node.t_derivative * delta_v/delta_t;
             
             // lock the integral if abs(previous integral + error) > prop_band/2
@@ -172,11 +169,16 @@ module.exports = function(RED) {
         } else {
             // first time through so initialise context data
             node.smoothed_value = node.pv;
+			
             // setup the integral term so that the power out would be integral_default if pv=setpoint
             node.integral = (0.5 - node.integral_default)*node.prop_band;
             node.derivative = 0.0;
             node.last_power = 0.0;  // power last time through
         }
+		
+		//storing last values
+		node.last_smoothed_value = node.smoothed_value
+		node.last_pv = node.pv		
         
         var proportional = node.pv - node.setpoint;
         if (node.prop_band == 0) {
