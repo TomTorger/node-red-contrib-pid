@@ -1,3 +1,6 @@
+Attempt to improve derivative smoothing. Not finished :-) 
+
+
 node-red-contrib-pid
 =====================
 
